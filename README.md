@@ -12,7 +12,8 @@ Questo progetto permette di controllare tramite ESP32 e un Bot Telegram, un impi
 
 Alimentazione
 -
-  Il circuito è interamente alimentato con un pannello solare da (*dimensioni e specifiche*) che ricarica una batteria al Piombo-Acida ("Lead Acid Battery") per auto da 12V (*inserire caratteristiche*). La batteria alimenta le due pompe a 5V e la scheda ESP32 a 3.3V grazie all'utilizzo di convertitori step-down. Tutti i sensori sono alimentati dai 5V forniti dal primo regolatore.
+  Il circuito è interamente alimentato con un pannello solare da (*dimensioni e specifiche*) che ricarica una batteria al Piombo-Acida ("Lead Acid Battery") per auto da 12V (*inserire caratteristiche*). 
+  L'energia della batteria viene gestita da convertitori step-down DC-DC: un primo modulo riduce la tensione a 5V per alimentare le due pompe elettriche (pilotate da relè) e la scheda ESP32 (tramite pin VIN). Tutti i sensori di lettura operano a 3.3V per garantire la compatibilità con gli ingressi dell'ESP32 e preservarne i pin.
   
   *Inserire schema elettrico*
 
@@ -22,15 +23,24 @@ Alimentazione
   
 Funzionamento HW
 -
-L'utente può controllare e monitorare l'irrigazione e leggere i dati dei sensori tramite un semplice messaggio nella chat in cui è presente il bot. 
+L'utente interagisce con l'impianto inviando semplici comandi testuali sulla chat di Telegram. Quando l'ESP32 riceve e decodifica un messaggio valido, esegue la routine associata (es. accensione del relè della pompa o lettura degli ingressi analogici) e invia un messaggio di feedback all'utente. L'utente può quindi controllare e monitorare l'irrigazione e leggere i dati dei sensori tramite un semplice messaggio nella chat in cui è presente il bot. 
 Quando riceve un messaggio, l'ESP32 esegue il codice contenente le istruzioni per quel particolare comando. 
 I comandi ammessi sono:
 - *Inserire comandi disponibili con descrizione*
 - _/water X_
   Permette l'avvio dell'irrigazione per i prossimi _X_ secondi. L'utente riceverà alcuni messaggi di feedback nel momento dell'inizio e della fine dell'irrigazione.
+-_/realtime_ 
+Richiede la lettura istantanea della temperatura e umidità dell'aria (DHT11).
 
-Funzionamento SW
--
+-_/getdata_ 
+Restituisce la percentuale di umidità del terreno rilevata dai sensori capacitivi.
+
+-_/stop_ 
+Interrompe immediatamente qualsiasi operazione in corso (es. spegne le pompe).
+
+*Trafserimento e analisi dei dati su Excel*
+
+
 *Descrizione funzionamento bot Telegram e lettura comdandi via chat*
 
 Componenti utilizzati
@@ -45,8 +55,11 @@ Componenti utilizzati
 1x Scheda ESP32
 2x Pompe elettriche a 5V
 
-Modifiche rispetto alla versione precedente
+Note sulla Sicurezza e Installazione
 -
-E' stato rivestito accuratamente il circuito elettronico del sensore di umidità del terreno per prevenire arruginimenti e corto-circuiti.
 
-Per poter riutilizzare il codice è necessario allegare un file header "Login.h" nella stessa cartella del progetto, dove scrivere SSID e PASSWORD della propria rete fissa e il token e il chat-id del proprio Bot telegram (dati privati).
+**Impermeabilizzazione**: I componenti elettronici dei sensori capacitivi sono stati accuratamente rivestiti con termorestringente per prevenire ossidazione, ruggine e possibili cortocircuiti dovuti al contatto prolungato con il terreno umido e l'acqua piovana.
+
+**Privacy**: Per ragioni di sicurezza, le credenziali della rete Wi-Fi (SSID e PASSWORD) e le chiavi del bot Telegram (TOKEN e CHAT_ID) non sono incluse nel codice principale. Devono essere inserite dall'utente creando un file header denominato MyLogin.h nella stessa cartella dello sketch.
+
+**Stop di Emergenza** E' stato aggiunto uno stato di "Stop" per evitare situazioni anomale e riportare il sistema in RESET.
