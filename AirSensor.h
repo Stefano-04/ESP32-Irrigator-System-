@@ -9,11 +9,11 @@ class AirSensor{
   int pin;
   float temp;
   float humi;
-  String nome;
+  const char* nome;
   public:
   AirSensor(int p, uint8_t type); //costruttore
   void begin();
   float leggiTemp();
   float leggiHumi();
-  String getNome();
+  const char* getNome();
 };

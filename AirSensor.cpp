@@ -17,6 +17,6 @@ float AirSensor::leggiHumi(){
   return dht.readHumidity();
 }
 
-String AirSensor::getNome() {
+const char* AirSensor::getNome() {
   return nome;
 }
