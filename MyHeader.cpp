@@ -22,9 +22,16 @@ const char* Startup_Menu_Telegram =
   volatile int contatoreImpulsiVento = 0;
   unsigned long ultimoAzzeramentoVento = 0; // Timer per il minuto
   float ultimaVelocitaVentoCalcolata = 0.0; // Memorizza l'ultimo calcolo valido
+  volatile unsigned long ultimoTempoInterrupt=0;
 
 void IRAM_ATTR ContaImpulsi() { //ISR per il conteggio del sensore Hall
-  contatoreImpulsiVento++; // Aggiunge 1 ogni volta che il magnete passa
+   unsigned long tempoAttuale = millis();
+  
+  // Se sono passati almeno 15 ms dall'ultimo impulso, consideralo valido
+  if (tempoAttuale - ultimoTempoInterrupt > 15) {
+    contatoreImpulsiVento++; 
+    ultimoTempoInterrupt = tempoAttuale;
+  }
 }
 void ConnectToWifi() {
   int tentativi = 0;
@@ -66,6 +73,7 @@ void StartWatering(int seconds) {
   digitalWrite(RELAY_2, HIGH);
   watering = true;
   timerPompa.once(seconds, StopWatering);  // Setup per lo Spegnimento
+
 }
 
 void StopWatering() {
@@ -99,7 +107,7 @@ void HandleNewMessages() {
         
         sscanf(c_text, "/water %d", &durata);
 
-        StartWatering(durata);
+        StartWatering(durata+11); //Aggiungo 11 secondi circa per permettere alla pompa di accendersi ed essere pronta a bagnare
 
         char msgBuffer[50];
         snprintf(msgBuffer, sizeof(msgBuffer), "Pompa accesa per %d secondi.", durata);
@@ -140,7 +148,7 @@ void GetSoilMoistureSensorMeasurements(SoilSensor sensor) {
 }
 
 void GetAirTempHumiSensorMeasurements() {
-  pinMode(VCC_RAIN_SENSOR, HIGH);
+  digitalWrite(VCC_RAIN_SENSOR, HIGH);
   float air_temperature=sensor_dht.leggiTemp();
   //DEBUG Serial.println(temp);
   float air_humidity=sensor_dht.leggiHumi();
@@ -149,7 +157,7 @@ void GetAirTempHumiSensorMeasurements() {
   //Anemometer
   //sviluppato nella funzione void CalcolaVentoOgniMinuto()
 
-  int lettura_RAIN_SENSOR=analogRead(RAIN_SENSOR); //0-1023
+  int lettura_RAIN_SENSOR=analogRead(RAIN_SENSOR); //0-14095
 
   int percentuale_pioggia = map(lettura_RAIN_SENSOR, 4095, 0, 0, 100); //100=asciutto, 0=pioggia forte
     if (percentuale_pioggia<0){
@@ -162,13 +170,13 @@ void GetAirTempHumiSensorMeasurements() {
 
   // (Puoi modificare questi numeri in base ai tuoi test reali)
   const char* str;
-  if (percentuale_pioggia > 85) {
+  if (percentuale_pioggia > 90) {
     str="☀️ Asciutto";
   }
-  else if (percentuale_pioggia > 70) {
+  else if (percentuale_pioggia > 75) {
     str="🌦️ Pioviggine / Pioggia leggera";
   }
-  else if (percentuale_pioggia > 40) {
+  else if (percentuale_pioggia > 50) {
     str="🌧️ Pioggia moderata";
   }
   else {
@@ -177,7 +185,14 @@ void GetAirTempHumiSensorMeasurements() {
 
   char message[256]; 
   if (isnan(air_temperature) || isnan(air_humidity)) {
-  snprintf(message, sizeof(message), 
+        snprintf(message, sizeof(message), 
+           "%s\n⚠️ Errore DHT!\n💨 Vento: %.1f km/h \n Condizioni atmosferiche: %s", 
+           sensor_dht.getNome(), 
+           ultimaVelocitaVentoCalcolata, 
+           str);
+  }
+  else{
+      snprintf(message, sizeof(message), 
            "%s\n🌡️ Temperatura: %.1f °C\n💧 Umidità: %.1f %%\n💨 Vento: %.1f km/h \n Condizioni atmosferiche: %s", 
            sensor_dht.getNome(), 
            air_temperature, 
@@ -185,15 +200,8 @@ void GetAirTempHumiSensorMeasurements() {
            ultimaVelocitaVentoCalcolata, 
            str);
   }
-  else{
-      snprintf(message, sizeof(message), 
-           "%s\n⚠️ Errore DHT!\n💨 Vento: %.1f km/h \n Condizioni atmosferiche: %s", 
-           sensor_dht.getNome(), 
-           ultimaVelocitaVentoCalcolata, 
-           str);
-  }
   bot.sendMessage(CHAT_ID, message, "");
-  pinMode(VCC_RAIN_SENSOR, LOW);
+  digitalWrite(VCC_RAIN_SENSOR, LOW);
 }
 
 void StopAndReset() {  //Interrupt what ESP32 is doing and return in "IDLE" state: red button
@@ -236,7 +244,7 @@ void UpdateStatusLED() {
 }
 void SendEmail(){
   auto statusCallback = [](SMTPStatus status) {
-    //Serial.println(status.text);
+    //Serial.println(status.info());
   };
   smtp.connect(SMTP_HOST, SMTP_PORT, statusCallback);
 
@@ -250,7 +258,9 @@ void SendEmail(){
     msg.headers.add(rfc822_subject, "Resoconto giornaliero Meteo Station");
     //msg.text.body("This is a plain text message.");
 
-
+    if (i==0){//Impedisco divisioni per zero nei calcoli successivi-->possibile fonte di crash
+      i++;
+    }
     float temperature_avg = air_temperature_somma/i;
     float humidity_avg = air_humidity_somma/i;
     char htmlMsg[500]; 
@@ -261,7 +271,7 @@ void SendEmail(){
       "<h2>🌻 Report Irrigazione Giornaliero</h2>"
       "<ul>"
       "<li><b>Temperatura Media:</b> %.1f &deg;C</li>"
-      "<li><b>Umidit&a Media:</b> %.1f %%</li>"
+      "<li><b>Umidit&agrave; Media:</b> %.1f %%</li>"
       "<li><b>Temperatura massima:</b> %.1f %%</li>"
       "<li><b>Temperatura minima:</b> %.1f %%</li>"
       "</ul>"
@@ -272,16 +282,24 @@ void SendEmail(){
   msg.html.body(htmlMsg);
      
     // Set timestamp for the email
-    while (time(nullptr) < 100000) delay(100);
+    //while (time(nullptr) < 100000) delay(100);
     msg.timestamp = time(nullptr);
-
+    if (!smtp.send(msg)) {
+ //      Serial.println("Errore invio mail: " + smtp.errorReason());
+    } else {
+    //   Serial.println("Email inviata con successo!");
+    }
     smtp.send(msg);
+
     i=0; //resetto il numero delle misure giornaliere
     //resetto i valori delle temperature massima e minima giornaliere
     air_temperature_max=TEMP_MIN; //temperatura massima giornaliera
     air_temperature_min=TEMP_MAX; //temepratura minima giornaliera
     air_temperature_somma=0.0;
     air_humidity_somma=0.0;
+  }
+  else {
+    Serial.println("Impossibile connettersi al server SMTP.");
   }
 }
 
@@ -297,7 +315,7 @@ void CheckAndSendDailyEmail() {
   static int lastDaySent = -1;
 
   // Se sono le 21, i minuti sono 0 (o poco più), e non abbiamo ancora inviato oggi:
-  if (timeinfo.tm_hour == 21 && timeinfo.tm_min == 0 && timeinfo.tm_mday != lastDaySent) {
+  if (timeinfo.tm_hour == 23 && timeinfo.tm_min == 59 && timeinfo.tm_mday != lastDaySent) {
     
     //Serial.println("Sono le 21:00! Invio il resoconto giornaliero...");
     
@@ -332,7 +350,7 @@ void InviaDatiThingSpeak(){
       }
 
       char httpRequestData[256];
-      snprintf(httpRequestData, sizeof(httpRequestData), "api_key=%s&field1=%f&field2=%f", ThingSpeak_apiKey, air_temperature, air_humidity);   
+      snprintf(httpRequestData, sizeof(httpRequestData), "api_key=%s&field1=%.1f&field2=%.1f&field3=%.1f", ThingSpeak_apiKey, air_temperature, air_humidity, ultimaVelocitaVentoCalcolata);   
       // Send HTTP POST request
       int httpResponseCode = http.POST(httpRequestData);
       if (httpResponseCode > 0) {

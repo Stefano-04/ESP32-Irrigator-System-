@@ -52,8 +52,7 @@ SoilSensor sensor5(32, "Vaso Gerani 5", 3200, 1700);  //P32
 const int HALL_SENSOR=25; //Hall Sensor PIN for the anemometer P25
 const int RAIN_SENSOR=33;
 const int VCC_RAIN_SENSOR=26;
-const int TEMPERATURE_HUMIDITY_SENSOR=13;
-AirSensor sensor_dht(TEMPERATURE_HUMIDITY_SENSOR, DHT11); //Pin per sensore dht pin 13 P13
+AirSensor sensor_dht(4, DHT11); //Pin per sensore dht pin 13 P13
 
 const int RELAY_1=27;  //Pin per RELAY_1 P16
 const int RELAY_2=14;  //Pin per RELAY_2 P17
@@ -62,7 +61,7 @@ const int LED_BUILTIN=2;
 
 void setup() {
   //Establish a serial communication
-  //Serial.begin(115200);
+  Serial.begin(115200);
   //DHT and Soil Moisture sensor SETUP
   sensor_dht.begin();
   sensor1.begin();
@@ -128,6 +127,7 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     AutoReconnect();
   }
+  CheckAndSendDailyEmail();
 
   CalcolaVentoOgniMinuto();//ogni 60sec contiamo il numero di impulsi del sensore hall per stimare la velocità del vento.
 

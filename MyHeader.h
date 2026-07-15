@@ -48,7 +48,6 @@ extern const int RELAY_2;
 extern const int HALL_SENSOR;
 extern const int RAIN_SENSOR;
 extern const int VCC_RAIN_SENSOR;
-extern const int TEMPERATURE_HUMIDITY_SENSOR;
 extern const int LED_BUILTIN;
 
 extern const char* SMTP_HOST;
