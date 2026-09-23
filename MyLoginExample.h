@@ -8,7 +8,7 @@
 
 #define BOT_TOKEN_IRRIGATOR  "TOKEN"
 #define CHAT_ID_BOT_IRRIGATOR  "CHAT_ID"
-
+#define GROUP_ID_IRRIGATOR "CHAT_ID_OF_THE_GROUP"
 // Email
 #define MY_AUTHOR_EMAIL "destinator"
 #define MY_AUTHOR_APP_PASS "password"
