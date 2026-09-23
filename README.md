@@ -1,5 +1,5 @@
 # ESP32-Irrigator-System-
-ESP32 Irrigator System 
+ESP32 IoT Irrigator System 
 Controllo remoto dell’irrigazione e lettura sensori tramite chat Telegram
 
 📌 Descrizione
@@ -44,7 +44,9 @@ I comandi ammessi sono:
 
 *Trasferimento e analisi dei dati su ThingSpeak*
 Ogni 30 minuti il sistema legge i dati di temperatura e umidità dell'aria e li invia a un server ThingSpeak per realizzare dei grafici giornalieri di temperatura e umidità nel corso della giornata.
-E' in corso di implementazione la lettura anche delle umidità del terreno dei 5 vasi.
+Link centralina online: "https://thingspeak.mathworks.com/channels/3422785".
+
+Il sistema è stato registrato nel sistema "opensensemap.org" grazie all'integrazione "Cloud-to-Cloud" con il servizio ThingSpeak. OpenSenseMap è un progetto no-profit open source che ha l'obiettivo di collezionare dati sull'ambiente provenienti da stazioni meteo amatoriali. E' possibile visualizzare la stazione al seguten url: "https://opensensemap.org/explore/6a577fc54d6c7a0008276993".
 
 
 *Descrizione funzionamento bot Telegram e lettura comdandi via chat*
