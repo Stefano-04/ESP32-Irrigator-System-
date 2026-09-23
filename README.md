@@ -15,12 +15,10 @@ Questo progetto permette di controllare tramite ESP32 e un Bot Telegram, un impi
 Alimentazione
 -
   Il circuito è interamente alimentato con un pannello solare da (*dimensioni e specifiche*) che ricarica una batteria al Piombo-Acida ("Lead Acid Battery") per auto da 12V (Batteria "Varta" da 52 Ah C22). 
-  L'energia della batteria viene gestita da un convertitore step-down DC-DC: esso riduce la tensione a 5V per alimentare le due pompe elettriche, la scheda ESP32 e la basetta millefori alla quale sono collegati i sensori capacitivi, il sensore hall, il sensore di pioggia e i comandi per i due relay. Tutti i sensori di lettura operano a 3.3V per garantire la compatibilità con gli ingressi dell'ESP32 e preservarne i pin, consentendo ai sensori analogici una corretta conversione A-D (il convertitore ADC dell'ESP32 è a 12 bit, quindi range 0-4095).
+  L'energia della batteria viene gestita da un convertitore step-down DC-DC: esso riduce la tensione a 5V per alimentare le due pompe elettriche, la scheda ESP32 e la basetta millefori alla quale sono collegati i sensori capacitivi, il sensore hall, il sensore di pioggia e i comandi per i due relay. Tutti i sensori di lettura operano a 3.3V per garantire la compatibilità con gli ingressi dell'ESP32 e preservarne i pin, consentendo ai sensori analogici una corretta conversione A-D (il convertitore ADC dell'ESP32 è a 12 bit, quindi range 0-4095). Le pompe elettriche sono pilotate da un relay a 5V controllate da un segnale di output dell'ESP.
   
-  *Inserire schema elettrico*
+**Disegno schema elettrico**: "https://github.com/Stefano-04/ESP32-Irrigator-System-/blob/main/schema_irrigatore_colorato.pdf"
 
-
-  Le pompe elettriche sono pilotate da un relay a 5V controllate da un segnale di output dell'ESP.
 
   
 Funzionamento HW
