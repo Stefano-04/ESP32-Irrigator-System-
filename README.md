@@ -28,19 +28,17 @@ Funzionamento HW
 L'utente interagisce con l'impianto inviando semplici comandi testuali sulla chat di Telegram. Quando l'ESP32 riceve e decodifica un messaggio valido, esegue la routine associata (es. accensione del relay della pompa o lettura dei sensori) e invia un messaggio di feedback all'utente. L'utente può quindi controllare e monitorare l'irrigazione e leggere i dati dei sensori tramite un semplice messaggio nella chat in cui è presente il bot. 
 Quando riceve un messaggio, l'ESP32 esegue il codice contenente le istruzioni per quel particolare comando. 
 I comandi ammessi sono:
-- _/start
-  Invia di nuovo il menù informativo con tutti i comandi
-- *Inserire comandi disponibili con descrizione*
-- _/water X_
-  Permette l'avvio dell'irrigazione per i prossimi _X_ secondi. L'utente riceverà alcuni messaggi di feedback nel momento dell'inizio e della fine dell'irrigazione.
--_/realtime_ 
-  Richiede la lettura istantanea della temperatura e umidità dell'aria (DHT11).
-
--_/getdata_ 
-  Restituisce la percentuale di umidità del terreno rilevata dai sensori capacitivi.
-
+- _/menu_
+  Reinvia il menu con tutti i comandi.
 -_/stop_ 
   Interrompe immediatamente qualsiasi operazione in corso (es. spegne le pompe).
+- _/water X Y_
+  Permette l'avvio della pompa n. _X_ per i prossimi _Y_ secondi. L'utente riceverà alcuni messaggi di feedback nel momento dell'inizio e della fine dell'irrigazione.
+-_/realtime_air_
+  Comunica la lettura istantanea della temperatura e umidità dell'aria (fornite dal sensore DHT11).
+-_/realtime_soil_
+  Restituisce la percentuale di umidità del terreno rilevata dai 5 sensori capacitivi.
+
 
 *Trasferimento e analisi dei dati su ThingSpeak*
 Ogni 30 minuti il sistema legge i dati di temperatura e umidità dell'aria e li invia a un server ThingSpeak per realizzare dei grafici giornalieri di temperatura e umidità nel corso della giornata.
