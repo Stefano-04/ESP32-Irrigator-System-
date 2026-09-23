@@ -14,7 +14,7 @@ Questo progetto permette di controllare tramite ESP32 e un Bot Telegram, un impi
 
 Alimentazione
 -
-  Il circuito è interamente alimentato con un pannello solare da (*dimensioni e specifiche*) che ricarica una batteria al Piombo-Acida ("Lead Acid Battery") per auto da 12V (*inserire caratteristiche*). 
+  Il circuito è interamente alimentato con un pannello solare da (*dimensioni e specifiche*) che ricarica una batteria al Piombo-Acida ("Lead Acid Battery") per auto da 12V (Batteria "Varta" da 52 Ah C22). 
   L'energia della batteria viene gestita da un convertitore step-down DC-DC: esso riduce la tensione a 5V per alimentare le due pompe elettriche, la scheda ESP32 e la basetta millefori alla quale sono collegati i sensori capacitivi, il sensore hall, il sensore di pioggia e i comandi per i due relay. Tutti i sensori di lettura operano a 3.3V per garantire la compatibilità con gli ingressi dell'ESP32 e preservarne i pin, consentendo ai sensori analogici una corretta conversione A-D (il convertitore ADC dell'ESP32 è a 12 bit, quindi range 0-4095).
   
   *Inserire schema elettrico*
@@ -44,13 +44,14 @@ I comandi ammessi sono:
 
 *Trasferimento e analisi dei dati su ThingSpeak*
 Ogni 30 minuti il sistema legge i dati di temperatura e umidità dell'aria e li invia a un server ThingSpeak per realizzare dei grafici giornalieri di temperatura e umidità nel corso della giornata.
+E' in corso di implementazione la lettura anche delle umidità del terreno dei 5 vasi.
 
 
 *Descrizione funzionamento bot Telegram e lettura comdandi via chat*
 
 Componenti utilizzati
 -
-4x Sensori capacitivi di umidità del terreno
+5x Sensori capacitivi di umidità del terreno
 1x Sensore di temperatura DHT11
 1x Sensore di pioggia resistivo
 *1x Sensore di profondità IR*
@@ -60,14 +61,15 @@ Componenti utilizzati
 1x Batteria VARTA 12V 52Ah
 1x Scheda ESP32
 2x Pompe elettriche a 5V 2W
+1x Modulo Convertitore Buck step-down, adjustable 5V
 
 Note sulla Sicurezza e Installazione
 -
 
 **Impermeabilizzazione**: I componenti elettronici dei sensori capacitivi sono stati accuratamente rivestiti con termorestringente per prevenire ossidazione, ruggine e possibili cortocircuiti dovuti al contatto prolungato con il terreno umido e l'acqua piovana.
 
-**Privacy**: Per ragioni di sicurezza, le credenziali della rete Wi-Fi (SSID e PASSWORD) e le chiavi del bot Telegram (TOKEN e CHAT_ID) non sono incluse nel codice principale. Devono essere inserite dall'utente creando un file header denominato MyLogin.h nella stessa cartella dello sketch.
+**Privacy**: Per ragioni di sicurezza, le credenziali della rete Wi-Fi (SSID e PASSWORD) e le chiavi del bot Telegram (TOKEN e CHAT_ID) non sono incluse nel codice principale. Devono essere inserite dall'utente creando un file header denominato MyLogin.h nella stessa cartella dello sketch, sul modello di MyLoginExample.h.
 
 **Power Management** Per ridurre al minimo il rischio di corrosione delle piste di rame, ridurre i consumi e aumentare il tempo di vita si è scelto di alimentare il sensore di pioggia solo durante il momento della misura e lasciarlo spento il resto del tempo. 
 
-**Stop di Emergenza** E' stato aggiunto uno stato di "Stop" per evitare situazioni anomale e riportare il sistema in RESET.
+**Stop di Emergenza** E' stato aggiunto uno stato di "Stop" per evitare situazioni anomale, fermando ogni comando di irrigazione e riportando il sistema in RESET.
