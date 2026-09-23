@@ -1,4 +1,4 @@
-#include <MyLoginExample.h>               // where WiFi credentials and Telegram bot token and chat_id are saved       
+#include <MyLogin.h>               // where WiFi credentials and Telegram bot token and chat_id are saved       
 #include "MyHeader.h"              //Contains project functions 
 
 // Sender SMTP settings (GMAIL)
@@ -22,6 +22,7 @@ const char* SSID = MY_SSID1;
 const char* PASSWORD = MY_PASSWORD1;
 const char* BOT_TOKEN = BOT_TOKEN_IRRIGATOR;
 const char* CHAT_ID = CHAT_ID_BOT_IRRIGATOR;
+const char* GROUP_ID=GROUP_ID_IRRIGATOR;
 const char* AUTHOR_EMAIL=MY_AUTHOR_EMAIL;
 const char* AUTHOR_APP_PASS=MY_AUTHOR_APP_PASS;
 const char* AUTHOR_NAME=MY_AUTHOR_NAME;
@@ -31,22 +32,23 @@ UniversalTelegramBot bot(BOT_TOKEN, client);  //define the bot
 SMTPClient smtp(client);
 
 /*FLAGS*/
-bool watering = false;  //not watering
-unsigned long wateringEnd = 0;
+bool watering_pump1 = false;  //not watering pump 1
+bool watering_pump2 = false;  //not watering pump 2
+bool watering_reset=false;    //not watering any pump
+unsigned long wateringEnd = 0; 
 unsigned long lastBotCheck = 0;  // Tempo dell'ultimo controllo Telegram
 //bool pumpPower = false;          //pump is not powered
 bool internet_down = false;      //internet is not down
 
-bool end_watering = false;
 bool end_readsensors = false;
 
 /*SENSORI*/
 // Inizializzazione Sensori con pin analogici ESP32 per i sensori di umidità del terreno
-SoilSensor sensor1(36, "Vaso Gerani 1", 3000, 1700);  //SVP
-SoilSensor sensor2(35, "Vaso Gerani 2", 3100, 1600);  //P35
-SoilSensor sensor3(34, "Vaso Gerani 3", 3100, 1500);  //P34
-SoilSensor sensor4(39, "Vaso Gerani 4", 3100, 1500);  //SVN
-SoilSensor sensor5(32, "Vaso Gerani 5", 3200, 1700);  //P32
+SoilSensor sensor1(36, "Sensore n.1: Vaso MJ AMNESIA", 3000, 1700);  //SVP
+SoilSensor sensor2(35, "Sensore n.2: (ex Vaso MJ AK-47 morta) Pomodoro", 3100, 1600);  //P35
+SoilSensor sensor3(34, "Sensore n.3: Vaso Basilico 1", 3100, 1500);  //P34
+SoilSensor sensor4(39, "Sensore n.4: Vaso Oleandro piccolo", 3100, 1500);  //SVN
+SoilSensor sensor5(32, "Sensore n.5: Vaso Basilico 2", 3200, 1700);  //P32
 
 
 const int HALL_SENSOR=25; //Hall Sensor PIN for the anemometer P25
@@ -57,11 +59,9 @@ AirSensor sensor_dht(4, DHT11); //Pin per sensore dht pin 13 P13
 const int RELAY_1=27;  //Pin per RELAY_1 P16
 const int RELAY_2=14;  //Pin per RELAY_2 P17
 
-const int LED_BUILTIN=2;
-
 void setup() {
   //Establish a serial communication
-  Serial.begin(115200);
+  //Serial.begin(115200);
   //DHT and Soil Moisture sensor SETUP
   sensor_dht.begin();
   sensor1.begin();
@@ -107,7 +107,6 @@ void setup() {
   // 3. Quando? FALLING significa "quando il segnale passa da HIGH a LOW" (il magnete è arrivato)
   attachInterrupt(digitalPinToInterrupt(HALL_SENSOR), ContaImpulsi, FALLING);
   
-  pinMode(LED_BUILTIN, OUTPUT);     //Set LED_BUILTIN for intermittent Blinking (check for Internet connection) pin2 GPIO2
   pinMode(RELAY_1, OUTPUT);            //Set RELAY_1 pin as output
   digitalWrite(RELAY_1, LOW);  //alimentazione pompa spenta (low->pompa spenta)
   pinMode(RELAY_2, OUTPUT);            //Set RELAY_2 pin as output
@@ -120,10 +119,7 @@ void loop() {
   // Resetta il timer del Watchdog: "Tutto ok, sono ancora vivo!"
   esp_task_wdt_reset();
 
-  //0 Led status (for the connection) (not-blocking)
-  UpdateStatusLED();
-
-  //1 While connection is down: AutoReconnect()
+  //While connection is down: AutoReconnect()
   if (WiFi.status() != WL_CONNECTED) {
     AutoReconnect();
   }

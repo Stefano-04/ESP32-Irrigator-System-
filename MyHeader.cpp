@@ -4,25 +4,32 @@
 
 const float TEMP_MAX=60.0;
 const float TEMP_MIN=-30.0;
-int i=0;//numero di misure già fatte nel corso della giornata (air_temp, air_humi) per il report giornaliero via mail
+
+int j=0;//numero di misure già fatte nel corso della giornata (air_temp, air_humi) per il report giornaliero via mail
 //Important infos displayed on Telegram chat when requested
+
 const char* Startup_Menu_Telegram =
   "Commands:\n\n"
-  "/start - restart the bot \n"
-  "/stop - delete bot commands\n"
-  "/water X - start watering for X seconds\n"
-  "/realtime - display real-time measurements\n"
-  "/getdata - get instant data from Arduino sensors";
+  "/menu@stazione_meteo2_bot - send this menu\n"
+  "/stop@stazione_meteo2_bot - stop watering and delete Telegram pending messages\n"
+  "/water X Y- activate water pump n.X for Y seconds\n"
+  "/realtime_air@stazione_meteo2_bot - get real-time measurements from air sensor\n"
+  "/realtime_soil@stazione_meteo2_bot - get real-time measurements from soil moisture sensors";
 
-  float air_temperature_somma=0.0; //vettore temperatura giornaliere
-  float air_humidity_somma=0.0;    //vettore umidità giornaliere
-  float air_temperature_max=TEMP_MIN; //temperatura massima giornaliera
-  float air_temperature_min=TEMP_MAX; //temepratura minima giornaliera
+float air_temperature_somma=0.0; //vettore temperatura giornaliere
+float air_humidity_somma=0.0;    //vettore umidità giornaliere
+float air_temperature_max=TEMP_MIN; //temperatura massima giornaliera
+float air_temperature_min=TEMP_MAX; //temepratura minima giornaliera
 
-  volatile int contatoreImpulsiVento = 0;
-  unsigned long ultimoAzzeramentoVento = 0; // Timer per il minuto
-  float ultimaVelocitaVentoCalcolata = 0.0; // Memorizza l'ultimo calcolo valido
-  volatile unsigned long ultimoTempoInterrupt=0;
+float temperature_avg;
+float humidity_avg;
+
+volatile int contatoreImpulsiVento = 0;
+unsigned long ultimoAzzeramentoVento = 0; // Timer per il minuto
+float ultimaVelocitaVentoCalcolata = 0.0; // Memorizza l'ultimo calcolo valido
+volatile unsigned long ultimoTempoInterrupt=0;
+
+int num_pompa=0;
 
 void IRAM_ATTR ContaImpulsi() { //ISR per il conteggio del sensore Hall
    unsigned long tempoAttuale = millis();
@@ -45,8 +52,8 @@ void ConnectToWifi() {
   }
   if (WiFi.status() == WL_CONNECTED) {
     //Serial.println("\n✅ WiFi connected");
-    bot.sendMessage(CHAT_ID, "✅ WiFi connected", "");
-    bot.sendMessage(CHAT_ID, Startup_Menu_Telegram, "");
+    bot.sendMessage(GROUP_ID, "✅ WiFi connected", "");
+    bot.sendMessage(GROUP_ID, Startup_Menu_Telegram, "");
   } else {
     // Se fallisce, lo diciamo sulla seriale ma non blocchiamo il programma
     //Serial.println("\n❌ Connessione fallita al primo colpo");
@@ -65,26 +72,36 @@ void AutoReconnect() {
   }
 }
 
-void StartWatering(int seconds) {
+void StartWatering(int num_pompa, int seconds) {
   if (seconds <= 0 || seconds > 60) {
     seconds = 10; //Imposto un valore basso in caso in cui ci sia un errore
   }
-  digitalWrite(RELAY_1, HIGH); //Avvia l'irrigazione (HIGH->POMPA FUNZIONANTE)
-  digitalWrite(RELAY_2, HIGH);
-  watering = true;
+  //Avvia l'irrigazione (HIGH->POMPA FUNZIONANTE)
+  if(num_pompa==1){
+    digitalWrite(RELAY_1, HIGH);
+    watering_pump1=true;
+  }
+  else if(num_pompa==2){
+    digitalWrite(RELAY_2, HIGH);
+    watering_pump2=true;
+  }
   timerPompa.once(seconds, StopWatering);  // Setup per lo Spegnimento
-
 }
 
 void StopWatering() {
-  digitalWrite(RELAY_1, LOW);
-  digitalWrite(RELAY_2, LOW);
-  watering = false;
-  end_watering = true;
-  if (end_watering) {
-    bot.sendMessage(CHAT_ID, "Irrigazione completata con successo!", "");
-    end_watering = false;
+  //Se la pompa 1 era in watering (watering_pump1) o arriva uno stop forzato (watering_reset), allora stopWatering
+  if(watering_pump1 || watering_reset){
+    watering_pump1=false;
+    digitalWrite(RELAY_1, LOW);
+    bot.sendMessage(GROUP_ID, "Irrigazione pompa n.1 completata con successo!", "");
   }
+  if(watering_pump2|| watering_reset){
+    watering_pump2=false;
+    digitalWrite(RELAY_2, LOW);
+     bot.sendMessage(GROUP_ID, "Irrigazione pompa n.2 completata con successo!", "");
+  }
+  watering_reset=false;
+  num_pompa=0;
 }
 
 void HandleNewMessages() {
@@ -94,41 +111,42 @@ void HandleNewMessages() {
       const char* c_text = bot.messages[i].text.c_str();
       String from_id = String(bot.messages[i].chat_id);
 
-      if (from_id != CHAT_ID) {
+      if (from_id != GROUP_ID) {
         bot.sendMessage(from_id, "Utente non autorizzato.", "");
         continue;
       }
 
-      if (strcmp(c_text, "/start") == 0) {
-        bot.sendMessage(CHAT_ID, Startup_Menu_Telegram, "");
+      if (strcmp(c_text, "/menu@stazione_meteo2_bot") == 0) {
+        bot.sendMessage(GROUP_ID, Startup_Menu_Telegram, "");
       } 
       else if (strncmp(c_text, "/water", 6) == 0) {
         int durata = 10; 
         
-        sscanf(c_text, "/water %d", &durata);
+        sscanf(c_text, "/water %d %d", &num_pompa, &durata);
 
-        StartWatering(durata+11); //Aggiungo 11 secondi circa per permettere alla pompa di accendersi ed essere pronta a bagnare
+        StartWatering(num_pompa,durata+11); //Aggiungo 11 secondi circa per permettere alla pompa di accendersi ed essere pronta a bagnare
 
         char msgBuffer[50];
-        snprintf(msgBuffer, sizeof(msgBuffer), "Pompa accesa per %d secondi.", durata);
-        bot.sendMessage(CHAT_ID, msgBuffer, "");
+        snprintf(msgBuffer, sizeof(msgBuffer), "Pompa n. %d accesa per %d secondi.", num_pompa, durata);
+        bot.sendMessage(GROUP_ID, msgBuffer, "");
       } 
-      else if (strcmp(c_text, "/getdata") == 0) {
+      else if (strcmp(c_text, "/realtime_soil@stazione_meteo2_bot") == 0) {
         // Avviamo la lettura
         GetSoilMoistureSensorMeasurements(sensor1);
         GetSoilMoistureSensorMeasurements(sensor2);
         GetSoilMoistureSensorMeasurements(sensor3);
         GetSoilMoistureSensorMeasurements(sensor4);
         GetSoilMoistureSensorMeasurements(sensor5);
-      } else if (strcmp(c_text, "/realtime") == 0) {
+      } else if (strcmp(c_text, "/realtime_air@stazione_meteo2_bot") == 0) {
         // Avviamo la lettura
         GetAirTempHumiSensorMeasurements();
-      } else if (strcmp(c_text, "/stop") == 0) {
+      } else if (strcmp(c_text, "/stop@stazione_meteo2_bot") == 0) {
+        watering_reset=true; //setto flag di reset watering per blocco forzato pompe
         StopWatering();
         StopAndReset();
       }
       else{
-        bot.sendMessage(CHAT_ID, "Comando non trovato", "");
+        bot.sendMessage(GROUP_ID, "Comando non trovato", "");
       }
     }
     numNewMessages = bot.getUpdates(bot.last_message_received + 1);
@@ -136,15 +154,12 @@ void HandleNewMessages() {
 }
 
 void GetSoilMoistureSensorMeasurements(SoilSensor sensor) {
-  // Pick 5 measurements and do the average
-  float lettura=sensor.leggi(); 
-
   //DEBUG Serial.println(sensor.getNome()+". "+lettura);
   char message[128]; 
 
   // 2. Usa snprintf per formattare la stringa e salvarla nel buffer
   snprintf(message, sizeof(message), "📊 %s: %d%%", sensor.getNome(), sensor.getPercentuale());
-  bot.sendMessage(CHAT_ID, message, "");
+  bot.sendMessage(GROUP_ID, message, "");
 }
 
 void GetAirTempHumiSensorMeasurements() {
@@ -173,10 +188,10 @@ void GetAirTempHumiSensorMeasurements() {
   if (percentuale_pioggia > 90) {
     str="☀️ Asciutto";
   }
-  else if (percentuale_pioggia > 75) {
+  else if (percentuale_pioggia > 80) {
     str="🌦️ Pioviggine / Pioggia leggera";
   }
-  else if (percentuale_pioggia > 50) {
+  else if (percentuale_pioggia > 70) {
     str="🌧️ Pioggia moderata";
   }
   else {
@@ -200,17 +215,17 @@ void GetAirTempHumiSensorMeasurements() {
            ultimaVelocitaVentoCalcolata, 
            str);
   }
-  bot.sendMessage(CHAT_ID, message, "");
+  bot.sendMessage(GROUP_ID, message, "");
   digitalWrite(VCC_RAIN_SENSOR, LOW);
 }
 
 void StopAndReset() {  //Interrupt what ESP32 is doing and return in "IDLE" state: red button
-  bot.sendMessage(CHAT_ID, "🚨 RESET DI EMERGENZA AVVIATO...", "");
+  bot.sendMessage(GROUP_ID, "🚨 RESET DI EMERGENZA AVVIATO...", "");
 
   digitalWrite(RELAY_1, LOW);  // Spegne subito la pompa 1
   digitalWrite(RELAY_2, LOW);  // Spegne subito la pompa 2
-  watering = false;         // Reset flag irrigazione
-
+  watering_pump1 = false;         // Reset flag irrigazione pompa 1
+  watering_pump2 = false;         // Reset flag irrigazione pompa 2
   // 2. FERMA I TIMER (Ticker)
   timerPompa.detach();  // Impedisce che il Ticker provi a chiamare StopWatering in futuro
 
@@ -223,25 +238,14 @@ void StopAndReset() {  //Interrupt what ESP32 is doing and return in "IDLE" stat
     num_messaggi_arretrati = bot.getUpdates(bot.last_message_received + 1);
   }
   lastBotCheck = millis();  // Evita un controllo immediato
-  bot.sendMessage(CHAT_ID, "🚨 Sistema resettato. Pompa spenta e comandi pendenti cancellati.", "");
+  bot.sendMessage(GROUP_ID, "🚨 Sistema resettato. Pompa spenta e comandi pendenti cancellati.", "");
 
   // OPZIONALE: Se vuoi un vero "ripartire da zero" fisico
   // Serial.println("Riavvio fisico dell'ESP32...");
   // ESP.restart();
 }
 
-//Feedback LED: Usa un LED (anche quello integrato nel pin 2) per segnalare lo stato.
-//Luce fissa = Connesso, Lampeggio veloce = Errore WiFi, Respiro (fading) = Irrigazione in corso.
-void UpdateStatusLED() {
-  if (WiFi.status() != WL_CONNECTED) {
-    // Lampeggio veloce usando millis() per non bloccare il codice
-    digitalWrite(LED_BUILTIN, (millis() / 100) % 2);
-  } else if (watering) {
-    digitalWrite(LED_BUILTIN, (millis() / 500) % 2);  // Lampeggio medio durante irrigazione
-  } else {
-    digitalWrite(LED_BUILTIN, HIGH);  // Fisso se tutto ok
-  }
-}
+
 void SendEmail(){
   auto statusCallback = [](SMTPStatus status) {
     //Serial.println(status.info());
@@ -258,11 +262,11 @@ void SendEmail(){
     msg.headers.add(rfc822_subject, "Resoconto giornaliero Meteo Station");
     //msg.text.body("This is a plain text message.");
 
-    if (i==0){//Impedisco divisioni per zero nei calcoli successivi-->possibile fonte di crash
-      i++;
+    if (j==0){//Impedisco divisioni per zero nei calcoli successivi-->possibile fonte di crash
+      j++;
     }
-    float temperature_avg = air_temperature_somma/i;
-    float humidity_avg = air_humidity_somma/i;
+    temperature_avg = (float) air_temperature_somma/j;
+    humidity_avg = (float) air_humidity_somma/j;
     char htmlMsg[500]; 
 
     // Compiliamo il testo sostituendo i %f con le tue variabili
@@ -272,11 +276,12 @@ void SendEmail(){
       "<ul>"
       "<li><b>Temperatura Media:</b> %.1f &deg;C</li>"
       "<li><b>Umidit&agrave; Media:</b> %.1f %%</li>"
-      "<li><b>Temperatura massima:</b> %.1f %%</li>"
-      "<li><b>Temperatura minima:</b> %.1f %%</li>"
+      "<li><b>Temperatura massima:</b> %.1f &deg;C</li>"
+      "<li><b>Temperatura minima:</b> %.1f &deg;C</li>"
+      "<li><b>Misure effettuate: </b> %d </li>"
       "</ul>"
       "</body></html>", 
-    temperature_avg, humidity_avg, air_temperature_max, air_temperature_min);
+    temperature_avg, humidity_avg, air_temperature_max, air_temperature_min, j);
 
   // Assegniamo la stringa creata al corpo della mail
   msg.html.body(htmlMsg);
@@ -291,7 +296,7 @@ void SendEmail(){
     }
     smtp.send(msg);
 
-    i=0; //resetto il numero delle misure giornaliere
+    j=0; //resetto il numero delle misure giornaliere
     //resetto i valori delle temperature massima e minima giornaliere
     air_temperature_max=TEMP_MIN; //temperatura massima giornaliera
     air_temperature_min=TEMP_MAX; //temepratura minima giornaliera
@@ -299,7 +304,7 @@ void SendEmail(){
     air_humidity_somma=0.0;
   }
   else {
-    Serial.println("Impossibile connettersi al server SMTP.");
+    //Serial.println("Impossibile connettersi al server SMTP.");
   }
 }
 
@@ -337,20 +342,32 @@ void InviaDatiThingSpeak(){
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");
       float air_temperature = sensor_dht.leggiTemp();
       float air_humidity = sensor_dht.leggiHumi();
-
       air_temperature_somma+=air_temperature;
       air_humidity_somma+=air_humidity;
-      i++;
-
+      j++;
+      
       if(air_temperature<air_temperature_min){
         air_temperature_min=air_temperature;
       }
-      else if(air_temperature>air_temperature_max){
+      if(air_temperature>air_temperature_max){
         air_temperature_max=air_temperature;
       }
 
       char httpRequestData[256];
-      snprintf(httpRequestData, sizeof(httpRequestData), "api_key=%s&field1=%.1f&field2=%.1f&field3=%.1f", ThingSpeak_apiKey, air_temperature, air_humidity, ultimaVelocitaVentoCalcolata);   
+      snprintf(
+      httpRequestData, 
+      sizeof(httpRequestData), 
+      "api_key=%s&field1=%.1f&field2=%.1f&field3=%.1f&field4=%d&field5=%d&field6=%d&field7=%d&field8=%d",
+      ThingSpeak_apiKey, 
+      air_temperature,
+      air_humidity, 
+      ultimaVelocitaVentoCalcolata, 
+      sensor1.getPercentuale(), 
+      sensor2.getPercentuale(), 
+      sensor3.getPercentuale(), 
+      sensor4.getPercentuale(), 
+      sensor5.getPercentuale()
+      );   
       // Send HTTP POST request
       int httpResponseCode = http.POST(httpRequestData);
       if (httpResponseCode > 0) {

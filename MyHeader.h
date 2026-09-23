@@ -21,6 +21,7 @@ extern volatile int contatoreImpulsiVento;
 extern const char* SSID;
 extern const char* PASSWORD;
 extern const char* CHAT_ID;
+extern const char* GROUP_ID;
 extern const char* AUTHOR_EMAIL;
 extern const char* AUTHOR_APP_PASS;
 extern const char* AUTHOR_NAME;
@@ -32,8 +33,10 @@ extern UniversalTelegramBot bot;
 extern Ticker timerPompa;
 extern SMTPClient smtp;
 
-extern bool watering;
-extern bool end_watering;
+extern bool watering_pump1;
+extern bool watering_pump2;
+extern bool watering_reset;
+//extern bool end_watering;
 extern unsigned long lastBotCheck;
 
 extern SoilSensor sensor1;
@@ -48,7 +51,7 @@ extern const int RELAY_2;
 extern const int HALL_SENSOR;
 extern const int RAIN_SENSOR;
 extern const int VCC_RAIN_SENSOR;
-extern const int LED_BUILTIN;
+//extern const int LED_BUILTIN;
 
 extern const char* SMTP_HOST;
 extern const int SMTP_PORT;
@@ -80,8 +83,6 @@ void GetSoilMoistureSensorMeasurements(SoilSensor sensor);
 void GetAirTempHumiSensorMeasurements();
 
 void StopAndReset();
-
-void UpdateStatusLED();
 
 void SendEmail();
 

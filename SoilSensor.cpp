@@ -25,6 +25,7 @@ float SoilSensor::leggi(){
 }
 
 int SoilSensor::getPercentuale() {
+  leggi();
   int percentuale = map(media, valoreSecco, valoreUmido, 0, 100);
   if (percentuale<0){
     percentuale=0;
